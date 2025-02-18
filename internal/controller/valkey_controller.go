@@ -603,6 +603,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			logger.Error(err, "failed to set slotrange")
 			return err
 		}
+		logger.Info(fmt.Sprintf("adding to assignedMasters, pod: %v ", podNames[i]))
 		assignedMasters[podNames[i]] = true
 		prevEnd = end
 	}
@@ -646,10 +647,11 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 		ipToNodeIdMap = parseClusterNodesString(info, logger)
 	}
 	assignedReplicas := make(map[string]bool)
-	logger.Info(fmt.Sprintf("assignedMasters: %v", assignedMasters))
+	logger.Info(fmt.Sprintf("len of assignedMasters: %v, assignedMasters: %v", len(assignedMasters), assignedMasters))
 
 	for master, _ := range assignedMasters {
 		for _, shard := range podNames {
+			logger.Info(fmt.Sprintf("looping, master: %v, shard: %v", master, shard))
 			if shard == master {
 				continue
 			}
