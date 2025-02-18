@@ -55,6 +55,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -123,13 +124,23 @@ var scripts embed.FS
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.2/pkg/reconcile
 func (r *ValkeyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) { // nolint:gocyclo
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
 	valkey := &hyperv1.Valkey{}
 	if err := r.Get(ctx, req.NamespacedName, valkey); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
+	idealReplicas := valkey.Spec.Shards * (valkey.Spec.Replicas + 1)
+	sts := &appsv1.StatefulSet{}
+	err := r.Get(ctx, types.NamespacedName{Namespace: valkey.Namespace, Name: valkey.Name}, sts)
+	if err == nil {
+		logger.Info(fmt.Sprintf("statefulset found. total replicas found: %v, idealReplicas: %v ", sts.Spec.Replicas, idealReplicas))
+	}
+	if err != nil && apierrors.IsNotFound(err) {
+		logger.Info("the statefulset doesn't exist'")
+	} else if err != nil {
+		logger.Error(err, "error while getting statefulset")
+	}
 	if err := r.upsertConfigMap(ctx, valkey); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -2514,6 +2525,7 @@ func (r *ValkeyReconciler) upsertStatefulSet(ctx context.Context, valkey *hyperv
 		logger.Error(err, "failed fetching statefulset")
 		return err
 	}
+	logger.Info(fmt.Sprintf("!!! sts.Spec.Replicas: %v, valkey.Spec.Shards: %v", *sts.Spec.Replicas, valkey.Spec.Shards))
 
 	if *sts.Spec.Replicas != valkey.Spec.Shards {
 		replicas := valkey.Spec.Shards * (valkey.Spec.Replicas + 1)
