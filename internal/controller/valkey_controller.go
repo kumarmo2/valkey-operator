@@ -1705,8 +1705,10 @@ func (r *ValkeyReconciler) balanceNodes(ctx context.Context, valkey *hyperv1.Val
 	}
 	pods := map[string]string{}
 	var tries int
+	idealReplicas := valkey.Spec.Shards * (valkey.Spec.Replicas + 1)
 	for {
-		if len(pods) != int(valkey.Spec.Shards) {
+		logger.Info(fmt.Sprintf("~~~ getting pod ips in loop. len(pods): %v,  idealReplicas: %v", len(pods), idealReplicas))
+		if len(pods) != int(idealReplicas) {
 			pods, err = r.getPodIPs(ctx, valkey)
 			if err != nil {
 				logger.Error(err, "failed to get pod ips")
@@ -1720,6 +1722,7 @@ func (r *ValkeyReconciler) balanceNodes(ctx context.Context, valkey *hyperv1.Val
 				return err
 			}
 		} else {
+			logger.Info("finally found pods equal to number of idealReplicas")
 			break
 		}
 	}
