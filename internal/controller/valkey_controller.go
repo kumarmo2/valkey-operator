@@ -632,6 +632,8 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 	clientsCount := len(clients)
 	logger.Info(fmt.Sprintf("clientsCount: %v", clientsCount))
 
+	ipToNodeIdMap := make(map[string]string)
+
 	if clientsCount > 0 {
 		podName := podNames[0]
 		client := clients[podName]
@@ -641,33 +643,40 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			logger.Error(err, "error while getting cluster nodes")
 		}
 		logger.Info(fmt.Sprintf("got the info: %v", info))
-		parseClusterNodesString(info, logger)
+		ipToNodeIdMap = parseClusterNodesString(info, logger)
 	}
-	// assignedReplicas := make(map[string]bool)
+	assignedReplicas := make(map[string]bool)
 
-	// for master, _ := range assignedMasters {
-	// 	for _, shard := range podNames {
-	// 		if shard == master {
-	// 			continue
-	// 		}
-	// 		_, ok := assignedMasters[shard]
-	// 		if ok {
-	// 			continue
-	// 		}
-	// 		_, ok = assignedReplicas[shard]
-	// 		if ok {
-	// 			continue
-	// 		}
-	// 		ip, ok := ips[shard]
-	// 		if !ok {
-	// 			logger.Error("ip not found for replicating. ", "pod", shard)
-	// 			return fmt.Errorf("ip not found for replicating for shard: %s", shard)
-	// 		}
-	// 		// client:= clients[master]
-	// 		// clients[master].Do(ctx, clients[master].B().ClusterReplicate())
-	//
-	// 	}
-	// }
+	for master, _ := range assignedMasters {
+		for _, shard := range podNames {
+			if shard == master {
+				continue
+			}
+			_, ok := assignedMasters[shard]
+			if ok {
+				continue
+			}
+			_, ok = assignedReplicas[shard]
+			if ok {
+				continue
+			}
+			ip, ok := ips[shard]
+			if !ok {
+				logger.Info(fmt.Sprintf("ip not found for replicating. pod:%v ", shard))
+				return fmt.Errorf("ip not found for replicating for shard: %s", shard)
+			}
+			nodeId, ok := ipToNodeIdMap[ip]
+			if !ok {
+				e := fmt.Sprintf("could not find nodeid for ip, ip: %v", ip)
+				logger.Info(e)
+				return fmt.Errorf("could not find nodeid for ip, ip: %v", ip)
+			}
+			logger.Info(fmt.Sprintf("nodeid: %v, ip: %v", nodeId, ip))
+			// client:= clients[master]
+			// clients[master].Do(ctx, clients[master].B().ClusterReplicate())
+
+		}
+	}
 	// clients[""].B().ClusterReplicate().NodeId()
 
 	return nil
@@ -710,7 +719,7 @@ func parseClusterNodesString(info string, logger logr.Logger) map[string]string 
 		}
 		ip := hpParts[0]
 
-		logger.Info(fmt.Sprintf("Node ID: %s, IP: %s \n", nodeID, ip))
+		logger.Info(fmt.Sprintf("Node ID: %s, IP: %s\n", nodeID, ip))
 		ipToNodeIdMap[ip] = nodeID
 	}
 	return ipToNodeIdMap
