@@ -650,34 +650,44 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 	logger.Info(fmt.Sprintf("len of assignedMasters: %v, assignedMasters: %v", len(assignedMasters), assignedMasters))
 
 	for master, _ := range assignedMasters {
+		replicaCount := 0
 		for _, shard := range podNames {
+			if replicaCount >= int(valkey.Spec.Replicas) {
+				break
+			}
 			logger.Info(fmt.Sprintf("looping, master: %v, shard: %v", master, shard))
 			if shard == master {
 				continue
 			}
-			_, ok := assignedMasters[shard]
+			// _, ok := assignedMasters[shard]
+			// if ok {
+			// 	continue
+			// }
+			_, ok := assignedReplicas[shard]
 			if ok {
 				continue
 			}
-			_, ok = assignedReplicas[shard]
-			if ok {
-				continue
-			}
-			ip, ok := ips[shard]
+			ip, ok := ips[master]
 			if !ok {
-				logger.Info(fmt.Sprintf("ip not found for replicating. pod:%v ", shard))
-				return fmt.Errorf("ip not found for replicating for shard: %s", shard)
+				logger.Info(fmt.Sprintf("ip not found for replicating. pod:%v ", master))
+				return fmt.Errorf("ip not found for replicating for master: %s", master)
 			}
-			nodeId, ok := ipToNodeIdMap[ip]
+			masterNodeId, ok := ipToNodeIdMap[ip]
 			if !ok {
 				e := fmt.Sprintf("could not find nodeid for ip, ip: %v", ip)
 				logger.Info(e)
 				return fmt.Errorf("could not find nodeid for ip, ip: %v", ip)
 			}
-			logger.Info(fmt.Sprintf("nodeid: %v, ip: %v", nodeId, ip))
-			// client:= clients[master]
-			// clients[master].Do(ctx, clients[master].B().ClusterReplicate())
-
+			logger.Info(fmt.Sprintf(">>>> master: %v,  nodeid: %v, ip: %v", master, masterNodeId, ip))
+			client := clients[shard]
+			_, err := client.Do(ctx, client.B().ClusterReplicate().NodeId(masterNodeId).Build()).ToString()
+			if err != nil {
+				logger.Info(fmt.Sprintf("error while setting replica, err: %v", err))
+				continue
+			}
+			logger.Info(fmt.Sprintf("successfully made replica, master: %v, replica: %v", master, shard))
+			assignedReplicas[shard] = true
+			replicaCount++
 		}
 	}
 	// clients[""].B().ClusterReplicate().NodeId()
