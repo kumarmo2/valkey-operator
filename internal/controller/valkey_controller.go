@@ -677,6 +677,7 @@ func parseClusterNodesString(info string, logger logr.Logger) map[string]string 
 	ipToNodeIdMap := make(map[string]string)
 	lines := strings.Split(strings.TrimSpace(info), "\r\n")
 	for _, line := range lines {
+		logger.Info(fmt.Sprintf("line: %v", line))
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -686,8 +687,10 @@ func parseClusterNodesString(info string, logger logr.Logger) map[string]string 
 		// b37db40d4cbf4a33c7011cb0f0efdb2203f8b869 10.244.1.8:6379@16379 master - 0 1739861058000 5 connected 0-5461
 		fields := strings.Split(line, " ")
 		if len(fields) < 2 {
+			logger.Info(fmt.Sprintf("len of fields is less than 2, len: %v", len(fields)))
 			continue
 		}
+		logger.Info(fmt.Sprintf("fields: %v", fields))
 
 		// The first token is always the Node ID
 		nodeID := fields[0]
