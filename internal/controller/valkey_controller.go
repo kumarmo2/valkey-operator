@@ -479,7 +479,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 
 	ips := map[string]string{}
 	for ip, host := range tmpips {
-		logger.Info("ip, host: ", ip, host)
+		logger.Info(fmt.Sprintf("ip: %v, and host: %v", ip, host))
 		ips[host] = ip
 	}
 
