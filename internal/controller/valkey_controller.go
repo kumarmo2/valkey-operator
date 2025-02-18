@@ -134,7 +134,7 @@ func (r *ValkeyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	sts := &appsv1.StatefulSet{}
 	err := r.Get(ctx, types.NamespacedName{Namespace: valkey.Namespace, Name: valkey.Name}, sts)
 	if err == nil {
-		logger.Info(fmt.Sprintf("statefulset found. total replicas found: %v, idealReplicas: %v ", sts.Spec.Replicas, idealReplicas))
+		logger.Info(fmt.Sprintf("statefulset found. total replicas found: %v, idealReplicas: %v ", *sts.Spec.Replicas, idealReplicas))
 	}
 	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("the statefulset doesn't exist'")
