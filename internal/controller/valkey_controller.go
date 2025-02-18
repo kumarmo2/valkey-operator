@@ -2209,10 +2209,10 @@ func (r *ValkeyReconciler) upsertStatefulSet(ctx context.Context, valkey *hyperv
 									Name:      "scripts",
 									MountPath: "/scripts",
 								},
-								// {
-								// 	Name:      "valkey-data",
-								// 	MountPath: "/data",
-								// },
+								{
+									Name:      "valkey-data",
+									MountPath: "/data",
+								},
 								{
 									Name:      "empty-dir",
 									MountPath: "/valkey/etc",
@@ -2269,6 +2269,12 @@ func (r *ValkeyReconciler) upsertStatefulSet(ctx context.Context, valkey *hyperv
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
+						{
+							Name: "valkey-data",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
 					},
 				},
 			},
@@ -2291,10 +2297,10 @@ func (r *ValkeyReconciler) upsertStatefulSet(ctx context.Context, valkey *hyperv
 					RunAsUser: func(i int64) *int64 { return &i }(0),
 				},
 				VolumeMounts: []corev1.VolumeMount{
-					// {
-					// 	Name:      "valkey-data",
-					// 	MountPath: "/data",
-					// },
+					{
+						Name:      "valkey-data",
+						MountPath: "/data",
+					},
 					{
 						Name:      "empty-dir",
 						MountPath: "/tmp",
