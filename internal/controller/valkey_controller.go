@@ -33,6 +33,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/go-logr/logr"
 	valkeyClient "github.com/valkey-io/valkey-go"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -615,13 +616,12 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			logger.Info("node meeting peer", "peer", shard, "pod", podName)
 			r.Recorder.Event(valkey, "Normal", "Setting",
 				fmt.Sprintf("Node meeting peer %s on pod %s for %s/%s", shard, podName, valkey.Namespace, valkey.Name))
-			// ip, ok := ips[shard]
-			// if !ok {
-			// 	logger.Info("ip not found", "pod", shard)
-			// 	return fmt.Errorf("ip not found for %s", shard)
-			// }
-			// clients[podName].Do(ctx, clients[podName].B().ClusterMeet().Ip(podName)
-			if err := clients[podName].Do(ctx, clients[podName].B().ClusterMeet().Ip(shard).Port(6379).Build()).Error(); err != nil {
+			ip, ok := ips[shard]
+			if !ok {
+				logger.Info("ip not found", "pod", shard)
+				return fmt.Errorf("ip not found for %s", shard)
+			}
+			if err := clients[podName].Do(ctx, clients[podName].B().ClusterMeet().Ip(ip).Port(6379).Build()).Error(); err != nil {
 				logger.Error(err, "failed to cluster meet", "shard", shard, "ip", shard, "pod", podName)
 				return err
 			}
@@ -641,6 +641,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			logger.Error(err, "error while getting cluster nodes")
 		}
 		logger.Info(fmt.Sprintf("got the info: %v", info))
+		parseClusterNodesString(info, logger)
 	}
 	// assignedReplicas := make(map[string]bool)
 
@@ -670,6 +671,47 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 	// clients[""].B().ClusterReplicate().NodeId()
 
 	return nil
+}
+
+func parseClusterNodesString(info string, logger logr.Logger) map[string]string {
+	ipToNodeIdMap := make(map[string]string)
+	lines := strings.Split(strings.TrimSpace(info), "\r\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Example line structure:
+		// b37db40d4cbf4a33c7011cb0f0efdb2203f8b869 10.244.1.8:6379@16379 master - 0 1739861058000 5 connected 0-5461
+		fields := strings.Split(line, " ")
+		if len(fields) < 2 {
+			continue
+		}
+
+		// The first token is always the Node ID
+		nodeID := fields[0]
+
+		// The second token is "IP:Port@BusPort", e.g. "10.244.1.8:6379@16379"
+		addr := fields[1]
+
+		// Split off the cluster bus part "@16379" if present
+		// so we get the main "IP:Port"
+		hostPort := strings.Split(addr, "@")[0] // e.g. "10.244.1.8:6379"
+
+		// Now split that to separate IP from Port
+		hpParts := strings.Split(hostPort, ":")
+		if len(hpParts) < 2 {
+			fmt.Printf("Could not parse IP:Port from %s\n", hostPort)
+			continue
+		}
+		ip := hpParts[0]
+
+		logger.Info(fmt.Sprintf("Node ID: %s, IP: %s \n", nodeID, ip))
+		ipToNodeIdMap[ip] = nodeID
+	}
+	return ipToNodeIdMap
+
 }
 
 func (r *ValkeyReconciler) setClusterAnnounceIp(ctx context.Context, valkey *hyperv1.Valkey) error {
