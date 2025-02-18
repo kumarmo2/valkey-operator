@@ -634,10 +634,11 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 		podName := podNames[0]
 		client := clients[podName]
 		logger.Info(fmt.Sprintf("will get cluster nodes now, podName: %v", podName))
-		_, err := client.Do(ctx, client.B().ClusterNodes().Build()).ToString()
+		info, err := client.Do(ctx, client.B().ClusterNodes().Build()).ToString()
 		if err != nil {
 			logger.Error(err, "error while getting cluster nodes")
 		}
+		logger.Info(fmt.Sprintf("got the info: %v", info))
 	}
 	// assignedReplicas := make(map[string]bool)
 
