@@ -212,6 +212,8 @@ func (r *ValkeyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err := r.upsertStatefulSet(ctx, valkey); err != nil {
 		return ctrl.Result{}, err
 	}
+	logger.Info(fmt.Sprintf("~~~~, wait for 15 seconds after updating sts"))
+	time.Sleep(time.Second * 15)
 	if err := r.initCluster(ctx, valkey); err != nil {
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 3}, err
 	}
