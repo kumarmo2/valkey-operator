@@ -675,7 +675,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 
 func parseClusterNodesString(info string, logger logr.Logger) map[string]string {
 	ipToNodeIdMap := make(map[string]string)
-	lines := strings.Split(strings.TrimSpace(info), "\r\n")
+	lines := strings.Split(strings.TrimSpace(info), "\n")
 	for _, line := range lines {
 		logger.Info(fmt.Sprintf("line: %v", line))
 		line = strings.TrimSpace(line)
