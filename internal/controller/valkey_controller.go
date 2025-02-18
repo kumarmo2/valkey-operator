@@ -479,6 +479,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 
 	ips := map[string]string{}
 	for ip, host := range tmpips {
+		logger.Info("ip, host: ", ip, host)
 		ips[host] = ip
 	}
 
@@ -565,6 +566,8 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 
 	// set cluster slotrange
 	slotRange := 16384 / int(valkey.Spec.Shards)
+	assignedMasters := make(map[string]bool)
+
 	prevEnd := 0
 	for i := 0; i < int(valkey.Spec.Shards); i++ {
 		logger.Info("setting slotrange", "shard", i)
@@ -599,6 +602,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			logger.Error(err, "failed to set slotrange")
 			return err
 		}
+		assignedMasters[podNames[i]] = true
 		prevEnd = end
 	}
 
@@ -622,6 +626,33 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			}
 		}
 	}
+
+	// assignedReplicas := make(map[string]bool)
+
+	// for master, _ := range assignedMasters {
+	// 	for _, shard := range podNames {
+	// 		if shard == master {
+	// 			continue
+	// 		}
+	// 		_, ok := assignedMasters[shard]
+	// 		if ok {
+	// 			continue
+	// 		}
+	// 		_, ok = assignedReplicas[shard]
+	// 		if ok {
+	// 			continue
+	// 		}
+	// 		ip, ok := ips[shard]
+	// 		if !ok {
+	// 			logger.Error("ip not found for replicating. ", "pod", shard)
+	// 			return fmt.Errorf("ip not found for replicating for shard: %s", shard)
+	// 		}
+	// 		// client:= clients[master]
+	// 		// clients[master].Do(ctx, clients[master].B().ClusterReplicate())
+	//
+	// 	}
+	// }
+	// clients[""].B().ClusterReplicate().NodeId()
 
 	return nil
 }
