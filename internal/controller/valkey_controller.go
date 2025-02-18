@@ -615,15 +615,17 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			logger.Info("node meeting peer", "peer", shard, "pod", podName)
 			r.Recorder.Event(valkey, "Normal", "Setting",
 				fmt.Sprintf("Node meeting peer %s on pod %s for %s/%s", shard, podName, valkey.Namespace, valkey.Name))
-			ip, ok := ips[shard]
-			if !ok {
-				logger.Info("ip not found", "pod", shard)
-				return fmt.Errorf("ip not found for %s", shard)
-			}
-			if err := clients[podName].Do(ctx, clients[podName].B().ClusterMeet().Ip(ip).Port(6379).Build()).Error(); err != nil {
+			// ip, ok := ips[shard]
+			// if !ok {
+			// 	logger.Info("ip not found", "pod", shard)
+			// 	return fmt.Errorf("ip not found for %s", shard)
+			// }
+			// clients[podName].Do(ctx, clients[podName].B().ClusterMeet().Ip(podName)
+			if err := clients[podName].Do(ctx, clients[podName].B().ClusterMeet().Ip(shard).Port(6379).Build()).Error(); err != nil {
 				logger.Error(err, "failed to cluster meet", "shard", shard, "ip", shard, "pod", podName)
 				return err
 			}
+			logger.Info(fmt.Sprintf("cluster meet was done using dns. podname: %v, sharname: %v", podName, shard))
 		}
 	}
 
