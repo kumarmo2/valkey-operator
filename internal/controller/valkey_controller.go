@@ -564,6 +564,19 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 		counter++
 	}
 
+	clientsCount := len(clients)
+	logger.Info(fmt.Sprintf("clientsCount: %v", clientsCount))
+
+	if clientsCount > 0 {
+		podName := podNames[0]
+		client := clients[podName]
+		logger.Info(fmt.Sprintf("will get cluster nodes now, podName: %v", podName))
+		_, err := client.Do(ctx, client.B().ClusterNodes().Build()).ToString()
+		if err != nil {
+			logger.Error(err, "error while getting cluster nodes")
+		}
+	}
+
 	// set cluster slotrange
 	slotRange := 16384 / int(valkey.Spec.Shards)
 	assignedMasters := make(map[string]bool)
