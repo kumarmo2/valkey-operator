@@ -2069,9 +2069,9 @@ func (r *ValkeyReconciler) upsertStatefulSet(ctx context.Context, valkey *hyperv
 			},
 			ServiceName:         valkey.Name + "-headless",
 			PodManagementPolicy: appsv1.ParallelPodManagement,
-			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-				generatePVC(valkey),
-			},
+			// VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+			// 	generatePVC(valkey),
+			// },
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels(valkey),
@@ -2209,10 +2209,10 @@ func (r *ValkeyReconciler) upsertStatefulSet(ctx context.Context, valkey *hyperv
 									Name:      "scripts",
 									MountPath: "/scripts",
 								},
-								{
-									Name:      "valkey-data",
-									MountPath: "/data",
-								},
+								// {
+								// 	Name:      "valkey-data",
+								// 	MountPath: "/data",
+								// },
 								{
 									Name:      "empty-dir",
 									MountPath: "/valkey/etc",
@@ -2291,10 +2291,10 @@ func (r *ValkeyReconciler) upsertStatefulSet(ctx context.Context, valkey *hyperv
 					RunAsUser: func(i int64) *int64 { return &i }(0),
 				},
 				VolumeMounts: []corev1.VolumeMount{
-					{
-						Name:      "valkey-data",
-						MountPath: "/data",
-					},
+					// {
+					// 	Name:      "valkey-data",
+					// 	MountPath: "/data",
+					// },
 					{
 						Name:      "empty-dir",
 						MountPath: "/tmp",
