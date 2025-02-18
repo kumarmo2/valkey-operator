@@ -646,6 +646,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 		ipToNodeIdMap = parseClusterNodesString(info, logger)
 	}
 	assignedReplicas := make(map[string]bool)
+	logger.Info(fmt.Sprintf("assignedMasters: %v", assignedMasters))
 
 	for master, _ := range assignedMasters {
 		for _, shard := range podNames {
