@@ -665,6 +665,10 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 	}
 	// assignedReplicas := make(map[string]bool)
 	logger.Info(fmt.Sprintf("len of assignedMasters: %v, assignedMasters: %v", len(masterToReplicasMap), masterToReplicasMap))
+	ips, err = r.tryGettingPods(valkey, ctx, logger)
+	if err != nil {
+		logger.Info(fmt.Sprintf("error while getting ips, err: %v", err))
+	}
 	logger.Info(fmt.Sprintf("### ips: %v", ips))
 
 	for _, pod := range podNames {
@@ -767,7 +771,8 @@ func parseClusterNodesString(info string, logger logr.Logger) map[string]string 
 		logger.Info(fmt.Sprintf("fields: %v", fields))
 
 		// The first token is always the Node ID
-		nodeID := fields[0]
+		// nodeID := fields[0]
+		nodeID := strings.ReplaceAll(fields[0], "txt:", "")
 
 		// The second token is "IP:Port@BusPort", e.g. "10.244.1.8:6379@16379"
 		addr := fields[1]
@@ -789,6 +794,33 @@ func parseClusterNodesString(info string, logger logr.Logger) map[string]string 
 	}
 	return ipToNodeIdMap
 
+}
+
+func (r *ValkeyReconciler) tryGettingPods(valkey *hyperv1.Valkey, ctx context.Context, logger logr.Logger) (map[string]string, error) {
+	pods := map[string]string{}
+	var tries int
+	idealReplicas := valkey.Spec.Shards * (valkey.Spec.Replicas + 1)
+	for {
+		logger.Info(fmt.Sprintf("~~~ getting pod ips in loop. len(pods): %v,  idealReplicas: %v", len(pods), idealReplicas))
+		if len(pods) != int(idealReplicas) {
+			p, err := r.getPodIPs(ctx, valkey)
+			if err != nil {
+				logger.Error(err, "failed to get pod ips")
+				return nil, err
+			}
+			pods = p
+			time.Sleep(time.Second * 2)
+			tries++
+			if tries > 15 {
+				err := fmt.Errorf("timeout waiting for pods")
+				logger.Error(err, "failed to get pod ips")
+				return nil, err
+			}
+		} else {
+			logger.Info("finally found pods equal to number of idealReplicas")
+			return pods, nil
+		}
+	}
 }
 
 func (r *ValkeyReconciler) setClusterAnnounceIp(ctx context.Context, valkey *hyperv1.Valkey) error {
