@@ -665,6 +665,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 	}
 	// assignedReplicas := make(map[string]bool)
 	logger.Info(fmt.Sprintf("len of assignedMasters: %v, assignedMasters: %v", len(masterToReplicasMap), masterToReplicasMap))
+	logger.Info(fmt.Sprintf("### ips: %v", ips))
 
 	for _, pod := range podNames {
 		for master, _ := range masterToReplicasMap {
@@ -681,13 +682,13 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			if !ok {
 				e := fmt.Sprintf("could not find nodeid for ip, ip: %v", ip)
 				logger.Info(e)
-				return fmt.Errorf("could not find nodeid for ip, ip: %v", ip)
+				continue
 			}
 			masterNodeId, ok := ipToNodeIdMap[ip]
 			if !ok {
 				e := fmt.Sprintf("could not find nodeid for ip, ip: %v", ip)
 				logger.Info(e)
-				return fmt.Errorf("could not find nodeid for ip, ip: %v", ip)
+				continue
 			}
 			client := clients[pod]
 			_, err := client.Do(ctx, client.B().ClusterReplicate().NodeId(masterNodeId).Build()).ToString()
