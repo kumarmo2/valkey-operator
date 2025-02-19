@@ -583,7 +583,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 
 	// set cluster slotrange
 	slotRange := 16384 / int(valkey.Spec.Shards)
-	assignedMasters := make(map[string]bool)
+	masterToReplicasMap := make(map[string][]string)
 
 	prevEnd := 0
 	for i := 0; i < int(valkey.Spec.Shards); i++ {
@@ -620,7 +620,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			return err
 		}
 		logger.Info(fmt.Sprintf("adding to assignedMasters, pod: %v ", podNames[i]))
-		assignedMasters[podNames[i]] = true
+		masterToReplicasMap[podNames[i]] = make([]string, 0)
 		prevEnd = end
 	}
 
@@ -645,6 +645,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			logger.Info(fmt.Sprintf("cluster meet was done using dns. podname: %v, sharname: %v", podName, shard))
 		}
 	}
+	logger.Info("---- meeting end ----")
 
 	clientsCount := len(clients)
 	logger.Info(fmt.Sprintf("clientsCount: %v", clientsCount))
@@ -662,31 +663,25 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 		logger.Info(fmt.Sprintf("got the info: %v", info))
 		ipToNodeIdMap = parseClusterNodesString(info, logger)
 	}
-	assignedReplicas := make(map[string]bool)
-	logger.Info(fmt.Sprintf("len of assignedMasters: %v, assignedMasters: %v", len(assignedMasters), assignedMasters))
+	// assignedReplicas := make(map[string]bool)
+	logger.Info(fmt.Sprintf("len of assignedMasters: %v, assignedMasters: %v", len(masterToReplicasMap), masterToReplicasMap))
 
-	for master, _ := range assignedMasters {
-		replicaCount := 0
-		for _, shard := range podNames {
-			if replicaCount >= int(valkey.Spec.Replicas) {
-				break
-			}
-			logger.Info(fmt.Sprintf("looping, master: %v, shard: %v", master, shard))
-			if shard == master {
+	for _, pod := range podNames {
+		for master, _ := range masterToReplicasMap {
+			logger.Info(fmt.Sprintf("pod: %v, master: %v", pod, master))
+			if pod == master {
+				logger.Info(fmt.Sprintf(" pod and master are same, continuing"))
 				continue
 			}
-			// _, ok := assignedMasters[shard]
-			// if ok {
-			// 	continue
-			// }
-			_, ok := assignedReplicas[shard]
-			if ok {
+			if len(masterToReplicasMap[master]) >= int(valkey.Spec.Replicas) {
+				logger.Info(fmt.Sprintf("master: '%v' has been filled with all the replicas. now continuing", master))
 				continue
 			}
 			ip, ok := ips[master]
 			if !ok {
-				logger.Info(fmt.Sprintf("ip not found for replicating. pod:%v ", master))
-				return fmt.Errorf("ip not found for replicating for master: %s", master)
+				e := fmt.Sprintf("could not find nodeid for ip, ip: %v", ip)
+				logger.Info(e)
+				return fmt.Errorf("could not find nodeid for ip, ip: %v", ip)
 			}
 			masterNodeId, ok := ipToNodeIdMap[ip]
 			if !ok {
@@ -694,18 +689,58 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 				logger.Info(e)
 				return fmt.Errorf("could not find nodeid for ip, ip: %v", ip)
 			}
-			logger.Info(fmt.Sprintf(">>>> master: %v,  nodeid: %v, ip: %v", master, masterNodeId, ip))
-			client := clients[shard]
+			client := clients[pod]
 			_, err := client.Do(ctx, client.B().ClusterReplicate().NodeId(masterNodeId).Build()).ToString()
 			if err != nil {
 				logger.Info(fmt.Sprintf("error while setting replica, err: %v", err))
 				continue
 			}
-			logger.Info(fmt.Sprintf("successfully made replica, master: %v, replica: %v", master, shard))
-			assignedReplicas[shard] = true
-			replicaCount++
+			masterToReplicasMap[master] = append(masterToReplicasMap[master], pod)
+			logger.Info(fmt.Sprintf("pod: '%v'successfully made replica of master: '%v'", pod, master))
 		}
 	}
+
+	// for master, _ := range masterToReplicasMap {
+	// 	replicaCount := 0
+	// 	for _, shard := range podNames {
+	// 		if replicaCount >= int(valkey.Spec.Replicas) {
+	// 			break
+	// 		}
+	// 		logger.Info(fmt.Sprintf("looping, master: %v, shard: %v", master, shard))
+	// 		if shard == master {
+	// 			continue
+	// 		}
+	// 		// _, ok := assignedMasters[shard]
+	// 		// if ok {
+	// 		// 	continue
+	// 		// }
+	// 		_, ok := assignedReplicas[shard]
+	// 		if ok {
+	// 			continue
+	// 		}
+	// 		ip, ok := ips[master]
+	// 		if !ok {
+	// 			logger.Info(fmt.Sprintf("ip not found for replicating. pod:%v ", master))
+	// 			return fmt.Errorf("ip not found for replicating for master: %s", master)
+	// 		}
+	// 		masterNodeId, ok := ipToNodeIdMap[ip]
+	// 		if !ok {
+	// 			e := fmt.Sprintf("could not find nodeid for ip, ip: %v", ip)
+	// 			logger.Info(e)
+	// 			return fmt.Errorf("could not find nodeid for ip, ip: %v", ip)
+	// 		}
+	// 		logger.Info(fmt.Sprintf(">>>> master: %v,  nodeid: %v, ip: %v", master, masterNodeId, ip))
+	// 		client := clients[shard]
+	// 		_, err := client.Do(ctx, client.B().ClusterReplicate().NodeId(masterNodeId).Build()).ToString()
+	// 		if err != nil {
+	// 			logger.Info(fmt.Sprintf("error while setting replica, err: %v", err))
+	// 			continue
+	// 		}
+	// 		logger.Info(fmt.Sprintf("successfully made replica, master: %v, replica: %v", master, shard))
+	// 		assignedReplicas[shard] = true
+	// 		replicaCount++
+	// 	}
+	// }
 	// clients[""].B().ClusterReplicate().NodeId()
 
 	return nil
