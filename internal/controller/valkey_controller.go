@@ -710,6 +710,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			}
 			masterToReplicasMap[master] = append(masterToReplicasMap[master], pod)
 			logger.Info(fmt.Sprintf("pod: '%v'successfully made replica of master: '%v'", pod, master))
+			break
 		}
 	}
 
