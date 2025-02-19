@@ -655,13 +655,14 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 	if clientsCount > 0 {
 		podName := podNames[0]
 		client := clients[podName]
-		logger.Info(fmt.Sprintf("will get cluster nodes now, podName: %v", podName))
+		clientPodIp := podIps[podName]
+		logger.Info(fmt.Sprintf("will get cluster nodes now, podName: %v, podIp: %v", podName, clientPodIp))
 		info, err := client.Do(ctx, client.B().ClusterNodes().Build()).ToString()
 		if err != nil {
 			logger.Error(err, "error while getting cluster nodes")
 		}
 		logger.Info(fmt.Sprintf("got the info: %v", info))
-		ipToNodeIdMap = parseClusterNodesString(info, logger)
+		ipToNodeIdMap = parseClusterNodesString(info, logger, clientPodIp)
 	}
 	// assignedReplicas := make(map[string]bool)
 	logger.Info(fmt.Sprintf("len of assignedMasters: %v, assignedMasters: %v", len(masterToReplicasMap), masterToReplicasMap))
@@ -751,7 +752,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 	return nil
 }
 
-func parseClusterNodesString(info string, logger logr.Logger) map[string]string {
+func parseClusterNodesString(info string, logger logr.Logger, clientPodIp string) map[string]string {
 	ipToNodeIdMap := make(map[string]string)
 	lines := strings.Split(strings.TrimSpace(info), "\n")
 	for _, line := range lines {
@@ -788,6 +789,12 @@ func parseClusterNodesString(info string, logger logr.Logger) map[string]string 
 			continue
 		}
 		ip := hpParts[0]
+		ip = strings.TrimSpace(ip)
+		logger.Info(fmt.Sprintf("trimmed ip: '%v'", ip))
+		if ip == "" && strings.Contains(line, "myself") {
+			logger.Info(fmt.Sprintf("setting ip to clientPodIp: '%v'", clientPodIp))
+			ip = clientPodIp
+		}
 
 		logger.Info(fmt.Sprintf("Node ID: %s, IP: %s\n", nodeID, ip))
 		ipToNodeIdMap[ip] = nodeID
