@@ -645,7 +645,9 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			logger.Info(fmt.Sprintf("cluster meet was done using dns. podname: %v, sharname: %v", podName, shard))
 		}
 	}
-	logger.Info("---- meeting end ----")
+	// TODO: will need some other approach for waiting for handshake to complete.
+	logger.Info("---- meeting end. sleeping for 15s for handshake to finish ----")
+	time.Sleep(15 * time.Second)
 
 	clientsCount := len(clients)
 	logger.Info(fmt.Sprintf("clientsCount: %v", clientsCount))
