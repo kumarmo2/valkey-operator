@@ -668,7 +668,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 
 	for _, pod := range podNames {
 		for master, _ := range masterToReplicasMap {
-			logger.Info(fmt.Sprintf("pod: %v, master: %v", pod, master))
+			logger.Info(fmt.Sprintf("==pod: %v, master: %v", pod, master))
 			if pod == master {
 				logger.Info(fmt.Sprintf(" pod and master are same, continuing"))
 				continue
