@@ -494,15 +494,15 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 		return err
 	}
 
-	ips := map[string]string{}
+	podIps := map[string]string{}
 	for ip, host := range tmpips {
 		logger.Info(fmt.Sprintf("ip: %v, and host: %v", ip, host))
-		ips[host] = ip
+		podIps[host] = ip
 	}
 
 	clients := map[string]valkeyClient.Client{}
 	for _, podName := range podNames {
-		_, ok := ips[podName]
+		_, ok := podIps[podName]
 		if !ok {
 			logger.Info("ip not found", "pod", podName)
 			return fmt.Errorf("ip not found for %s", podName)
@@ -633,7 +633,7 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 			logger.Info("node meeting peer", "peer", shard, "pod", podName)
 			r.Recorder.Event(valkey, "Normal", "Setting",
 				fmt.Sprintf("Node meeting peer %s on pod %s for %s/%s", shard, podName, valkey.Namespace, valkey.Name))
-			ip, ok := ips[shard]
+			ip, ok := podIps[shard]
 			if !ok {
 				logger.Info("ip not found", "pod", shard)
 				return fmt.Errorf("ip not found for %s", shard)
@@ -665,13 +665,13 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 	}
 	// assignedReplicas := make(map[string]bool)
 	logger.Info(fmt.Sprintf("len of assignedMasters: %v, assignedMasters: %v", len(masterToReplicasMap), masterToReplicasMap))
-	ips, err = r.tryGettingPods(valkey, ctx, logger)
-	if err != nil {
-		logger.Info(fmt.Sprintf("error while getting ips, err: %v", err))
-	}
-	logger.Info(fmt.Sprintf("### ips: %v", ips))
+	// podIps, err = r.tryGettingPods(valkey, ctx, logger)
+	// if err != nil {
+	// 	logger.Info(fmt.Sprintf("error while getting ips, err: %v", err))
+	// }
+	logger.Info(fmt.Sprintf("### ips: %v", podIps))
 
-	for _, pod := range podNames {
+	for pod := range podIps {
 		for master, _ := range masterToReplicasMap {
 			logger.Info(fmt.Sprintf("==pod: %v, master: %v", pod, master))
 			if pod == master {
@@ -682,9 +682,9 @@ func (r *ValkeyReconciler) initCluster(ctx context.Context, valkey *hyperv1.Valk
 				logger.Info(fmt.Sprintf("master: '%v' has been filled with all the replicas. now continuing", master))
 				continue
 			}
-			ip, ok := ips[master]
+			ip, ok := podIps[master]
 			if !ok {
-				e := fmt.Sprintf("could not find nodeid for ip, ip: %v", ip)
+				e := fmt.Sprintf("could not find ip for master: %v", master)
 				logger.Info(e)
 				continue
 			}
